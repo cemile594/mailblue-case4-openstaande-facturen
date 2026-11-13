@@ -42,7 +42,7 @@ flowchart LR
 
 | Systeem | Hier | Waarom |
 |---|---|---|
-| **MailBlue (ActiveCampaign)** | **Echt** (trial, API v3) | De tag, de velden en de notities zijn de kern van de case. MailBlue draait op ActiveCampaign |
+| **MailBlue (ActiveCampaign)** | **Echt** (trial, API v3) | De tag, de velden en de notities zijn de kern van de case. MailBlue draait op ActiveCampaign. Ook de dunning-flow zelf staat er (3 mails met bedrag en betaallink, goal "tag weg"), gebouwd via de ActiveCampaign-MCP en inactief gelaten |
 | **Asana** | **Echt** (gratis account) | Project "Billing – Openstaande facturen" met de secties Nieuw · In behandeling · Betalingsafspraak · Afgerond |
 | MoneyBird | **Mock** (C4-01 API + C4-02 simulator, data in n8n Data Tables) | Zelfde endpoints, filtersyntax, payload-formaat (`webhook_token`, `entity_type`, `action`, `entity`) en `Idempotency-Key`-header als de echte. Voor productie wissel je alleen de base-URL en de credential, en registreer je de webhook. Een factuur vervalt in het echt pas na de vervaldatum, dus met een mock is elke situatie in een paar seconden af te spelen |
 | Slack | Mock (Data Table `c4_slack_messages`) | De tekst is precies wat de Slack-node in productie post |
@@ -87,12 +87,12 @@ flowchart LR
    Zet de ID's uit `mock-data/*_ids.json` in de **Config**-node van C4-11.
 4. Activeer alle C4-workflows. Let op: **C4-13 moet ook actief zijn**, want in n8n 2.x start een error-workflow anders niet. Daarna `curl -X POST <n8n>/webhook/c4-setup`.
 5. `python3 scripts/run_demo.py --reset`
-6. In MailBlue: de dunning-automation volgens [docs/marketing-contract.md](docs/marketing-contract.md).
+6. In MailBlue: de dunning-automation volgens [docs/marketing-contract.md](docs/marketing-contract.md). In de trial staat hij al als "Dunning-flow (demo) – openstaande facturen", gebouwd via de ActiveCampaign-MCP, en bewust inactief.
 
 ## Repo-indeling
 
 - [`TOELICHTING.md`](TOELICHTING.md): de antwoorden op de casevragen (ontwerp, triggers/tags/velden, edge cases, overdraagbaarheid)
-- [`docs/`](docs/): de [handleiding voor Billing](docs/billing-handleiding.md), het [contract met Marketing](docs/marketing-contract.md) en [beheer](docs/beheer.md)
+- [`docs/`](docs/): de [handleiding voor Billing](docs/billing-handleiding.md), het [contract met Marketing](docs/marketing-contract.md), [beheer](docs/beheer.md) en de [dunning-flow in MailBlue](docs/mailblue-dunning-flow.md) (opbouw + mailteksten, export uit de trial)
 - `workflows/local/`: de bron van de n8n-workflows (TypeScript, n8n-as-code). [`export/`](export/) bevat dezelfde workflows als n8n-JSON
 - `scenarios/`, `scripts/`, `mock-data/`: demo, inrichting en fictieve data
 - [`screenshots/`](screenshots/): canvassen, executions, Asana en MailBlue

@@ -35,17 +35,24 @@ De flow bestaat al. Het enige dat moet kloppen:
    - Maak een aparte tekst voor `%DUNNING_OPGEZEGD%` = *ja*: geen "je account wordt gepauzeerd" naar iemand die al heeft opgezegd. Dat kan met een If/Else op het veld.
 5. **Mailtype**: stuur dunning-mails als **transactionele mail**. Een klant die zich heeft afgemeld voor marketing, moet een betalingsherinnering nog steeds ontvangen.
 
-Voorbeeld van de opbouw (demo-versie in de trial):
+### Demo-versie in de MailBlue-trial
+In de trial staat de automation **"Dunning-flow (demo) – openstaande facturen"** (id 2). Die is gebouwd via de ActiveCampaign-MCP (AI-automationbuilder) en daarna gecontroleerd en gecorrigeerd (zie [TOELICHTING](../TOELICHTING.md), "Hoe ik AI heb ingezet"). De volledige opbouw en de mailteksten staan in [mailblue-dunning-flow.md](mailblue-dunning-flow.md). Hij staat bewust **inactief**: de demo-contacten hebben fictieve adressen, en activeren is een beslissing van Marketing.
+
 ```
 Trigger: tag billing-dunning-actief toegevoegd (multiple times)
- → [tag nog aanwezig?] → mail 1 "Vriendelijke herinnering" (bedrag, facturen, betaallink)
- → wacht 7 dagen
- → [tag nog aanwezig?] → If opgezegd = ja → mail 2b "Laatste openstaande factuur"
-                         else          → mail 2  "Tweede herinnering"
- → wacht 7 dagen
- → [tag nog aanwezig?] → mail 3 "Laatste herinnering" (vóór incasso / 14-dagenbrief)
-Goal (overal vandaan): tag billing-dunning-actief bestaat niet meer → einde
+ → [heeft tag?] nee → einde
+   ja → mail 1 "Vriendelijke herinnering: je factuur staat nog open"
+      → wacht 7 dagen
+      → [heeft tag nog?] nee → einde
+        ja → [Dunning – abonnement opgezegd = ja?]
+               ja  → mail 2b "Je laatste openstaande factuur bij MailBlue" → wacht 7 dagen
+                     → [heeft tag nog?] ja → mail 3 · nee → goal "Betaald of opgelost"
+               nee → mail 2 "Tweede herinnering: openstaande factuur" → wacht 7 dagen
+                     → [heeft tag nog?] ja → mail 3 → goal "Betaald of opgelost"
+mail 3 = "Laatste herinnering vóór overdracht aan incasso" (betaal binnen 14 dagen)
+Goal "Betaald of opgelost" = contact heeft tag billing-dunning-actief niet meer
 ```
+In alle mails staan `%DUNNING_BEDRAG%`, `%DUNNING_FACTUREN%` en een knop **"Nu betalen"** met `%DUNNING_BETAALLINK%` (mail 1–3 ook `%DUNNING_VERVALDATUM%`), plus de zin "Heb je in de tussentijd al betaald?". Afzender en adres zijn in de trial nog de standaardwaarden van het account. Zet die vóór activeren op het Billing-adres.
 
 ## Niet veranderen zonder overleg met Billing/automation
 - De **naam van de tag**: de automation zet en verwijdert hem op naam/ID.
