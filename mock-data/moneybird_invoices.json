@@ -1,0 +1,9 @@
+[
+  {"mb_id": "mb_inv_510000", "contact_id": "mb_c_410001", "invoice_id": "2026-0433", "state": "paid", "invoice_date": "2026-09-01", "due_date": "2026-09-15", "total_price_incl_tax": 59.0, "total_unpaid": 0.0, "original_sales_invoice_id": ""},
+  {"mb_id": "mb_inv_510001", "contact_id": "mb_c_410001", "invoice_id": "2026-0501", "state": "open", "invoice_date": "2026-10-01", "due_date": "2026-10-15", "total_price_incl_tax": 59.0, "total_unpaid": 59.0, "original_sales_invoice_id": ""},
+  {"mb_id": "mb_inv_510002", "contact_id": "mb_c_410001", "invoice_id": "2026-0567", "state": "open", "invoice_date": "2026-10-29", "due_date": "2026-11-12", "total_price_incl_tax": 59.0, "total_unpaid": 59.0, "original_sales_invoice_id": ""},
+  {"mb_id": "mb_inv_520001", "contact_id": "mb_c_420001", "invoice_id": "2026-0512", "state": "open", "invoice_date": "2026-10-06", "due_date": "2026-10-20", "total_price_incl_tax": 179.0, "total_unpaid": 179.0, "original_sales_invoice_id": ""},
+  {"mb_id": "mb_inv_530001", "contact_id": "mb_c_430001", "invoice_id": "2026-0520", "state": "open", "invoice_date": "2026-10-10", "due_date": "2026-10-24", "total_price_incl_tax": 89.0, "total_unpaid": 89.0, "original_sales_invoice_id": ""},
+  {"mb_id": "mb_inv_540001", "contact_id": "mb_c_440001", "invoice_id": "2026-0525", "state": "open", "invoice_date": "2026-10-13", "due_date": "2026-10-27", "total_price_incl_tax": 29.0, "total_unpaid": 29.0, "original_sales_invoice_id": ""},
+  {"mb_id": "mb_inv_550001", "contact_id": "mb_c_450001", "invoice_id": "2026-0530", "state": "open", "invoice_date": "2026-10-15", "due_date": "2026-10-29", "total_price_incl_tax": 119.0, "total_unpaid": 119.0, "original_sales_invoice_id": ""}
+]

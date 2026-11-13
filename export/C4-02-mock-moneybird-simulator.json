@@ -1,0 +1,563 @@
+{
+  "id": "PhGcbTwqZ5YoLbob",
+  "name": "C4-02 Mock – MoneyBird-gebeurtenis (simulator)",
+  "active": false,
+  "nodes": [
+    {
+      "id": "f21b2385-3909-4a03-8c85-c7ade6cba208",
+      "name": "Uitleg simulator",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -520
+      ],
+      "parameters": {
+        "content": "## C4-02 Simulator: \"er gebeurt iets in MoneyBird\"\nSpeelt na wat MoneyBird doet: **status van een factuur wijzigen** in de mock-tabellen en daarna **een webhook sturen in het echte MoneyBird-formaat** (`administration_id, webhook_id, webhook_token, entity_type, entity_id, state, action, entity` + header `Idempotency-Key`) naar C4-10.\n\n`POST /webhook/c4-moneybird-sim` met `{ \"gebeurtenis\": …, \"factuur\": \"2026-0501\", \"bedrag\": 40 }`\n- **vervalt** → state late · `sales_invoice_state_changed_to_late`\n- **deelbetaling** → total_unpaid omlaag · `payment_registered` (Payment, alleen factuur-ID)\n- **betaling** → paid · `sales_invoice_state_changed_to_paid`\n- **creditfactuur** → nieuwe creditfactuur (negatief) · `sales_invoice_state_changed_to_open`\n- **storno** → betaling teruggedraaid, weer late · `payment_destroyed`\n- **oninbaar** → uncollectible · `sales_invoice_state_changed_to_uncollectible`\n- **opzegging** (`\"contact\"`) → abonnement opgezegd · `subscription_cancelled`\n\nOpties: `\"zonder_webhook\": true` (= gemiste webhook), `\"dubbel\": true` (= MoneyBird stuurt dezelfde push 2×).",
+        "height": 460,
+        "width": 980,
+        "color": 7
+      }
+    },
+    {
+      "id": "182a3f76-3e68-4ed2-814a-6a92f523c82f",
+      "webhookId": "0426c2d9-8137-44cc-948b-20886e8ccf14",
+      "name": "Webhook c4-moneybird-sim",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "c4-moneybird-sim",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {}
+      }
+    },
+    {
+      "id": "7850941b-a85f-4967-819e-d52f2324c521",
+      "name": "Facturen lezen",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_mb_invoices",
+          "mode": "name"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "returnAll": true
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "ee99b575-2254-41aa-b6b3-97e8f27791c1",
+      "name": "Contacten lezen",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_mb_contacts",
+          "mode": "name"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "returnAll": true
+      },
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "id": "5dc1e3a7-ec3e-417e-a086-27567655cce6",
+      "name": "Gebeurtenis uitvoeren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $('Webhook c4-moneybird-sim').first().json.body || {};\nconst rows = n => $(n).all().map(i => i.json).filter(r => r && r.id !== undefined);\nconst facturen = rows('Facturen lezen');\nconst contacten = rows('Contacten lezen');\nconst g = String(body.gebeurtenis || '').toLowerCase();\nconst num = v => Math.round(Number(v || 0) * 100) / 100;\nconst nu = new Date().toISOString();\nconst vandaag = nu.slice(0, 10);\nconst TOKEN = 'demo-c4-webhook-token';\n\nconst contactObj = c => c ? { id: c.contact_id, company_name: c.company_name, firstname: c.firstname, lastname: c.lastname,\n  email: c.email, send_invoices_to_email: c.email, customer_id: c.customer_id } : null;\nconst toMb = (r, c) => ({ id: r.mb_id, administration_id: 'adm-demo', contact_id: r.contact_id, contact: contactObj(c),\n  invoice_id: r.invoice_id, state: r.state, invoice_date: r.invoice_date, due_date: r.due_date, currency: 'EUR',\n  total_price_incl_tax: num(r.total_price_incl_tax).toFixed(2), total_unpaid: num(r.total_unpaid).toFixed(2),\n  original_sales_invoice_id: r.original_sales_invoice_id || null, updated_at: nu });\n\nlet mutatie = null, push = null, melding = '';\nif (g === 'opzegging') {\n  const c = contacten.find(x => x.contact_id === body.contact || x.company_name === body.contact || x.customer_id === String(body.contact));\n  if (!c) throw new Error('Contact niet gevonden: ' + body.contact);\n  mutatie = { soort: 'contact', contact_id: c.contact_id, cancelled_at: nu, abonnement_status: 'opgezegd' };\n  push = { entity_type: 'Subscription', entity_id: c.subscription_id, state: 'cancelled', action: 'subscription_cancelled',\n    entity: { id: c.subscription_id, contact_id: c.contact_id, contact: contactObj(c), reference: c.abonnement, cancelled_at: nu, end_date: vandaag } };\n  melding = c.company_name + ' heeft het abonnement opgezegd';\n} else {\n  const f = facturen.find(x => x.mb_id === body.factuur || x.invoice_id === body.factuur);\n  if (!f) throw new Error('Factuur niet gevonden: ' + body.factuur);\n  const c = contacten.find(x => x.contact_id === f.contact_id);\n  const nieuw = { ...f };\n  const payment = (prijs) => ({ id: 'mb_pay_' + Date.now(), administration_id: 'adm-demo', invoice_type: 'SalesInvoice',\n    invoice_id: f.mb_id, price: num(prijs).toFixed(2), payment_date: vandaag, created_at: nu });\n  if (g === 'vervalt') {\n    nieuw.state = 'late';\n    push = { entity_type: 'SalesInvoice', action: 'sales_invoice_state_changed_to_late', state: 'late' };\n    melding = 'Factuur ' + f.invoice_id + ' is vervallen (vervaldatum ' + f.due_date + ')';\n  } else if (g === 'deelbetaling') {\n    const bedrag = num(body.bedrag);\n    if (!(bedrag > 0)) throw new Error('Geef een bedrag mee voor een deelbetaling');\n    nieuw.total_unpaid = Math.max(0, num(f.total_unpaid - bedrag));\n    if (nieuw.total_unpaid === 0) nieuw.state = 'paid';\n    push = { entity_type: 'Payment', action: 'payment_registered', state: null, entity: payment(bedrag) };\n    melding = 'Deelbetaling van ' + bedrag + ' op ' + f.invoice_id + ', nog open: ' + nieuw.total_unpaid;\n  } else if (g === 'betaling') {\n    nieuw.total_unpaid = 0; nieuw.state = 'paid';\n    push = { entity_type: 'SalesInvoice', action: 'sales_invoice_state_changed_to_paid', state: 'paid' };\n    melding = 'Factuur ' + f.invoice_id + ' is volledig betaald';\n  } else if (g === 'storno') {\n    nieuw.total_unpaid = num(f.total_price_incl_tax);\n    nieuw.state = (f.due_date < vandaag) ? 'late' : 'open';\n    push = { entity_type: 'Payment', action: 'payment_destroyed', state: null, entity: payment(f.total_price_incl_tax) };\n    melding = 'Betaling op ' + f.invoice_id + ' is teruggedraaid (storno), status weer ' + nieuw.state;\n  } else if (g === 'oninbaar') {\n    nieuw.state = 'uncollectible';\n    push = { entity_type: 'SalesInvoice', action: 'sales_invoice_state_changed_to_uncollectible', state: 'uncollectible' };\n    melding = 'Factuur ' + f.invoice_id + ' is op oninbaar gezet';\n  } else if (g === 'creditfactuur') {\n    const bedrag = num(body.bedrag || f.total_unpaid);\n    const credit = { mb_id: f.mb_id + '_cr', contact_id: f.contact_id, invoice_id: f.invoice_id + '-C', state: 'open',\n      invoice_date: vandaag, due_date: vandaag, total_price_incl_tax: -bedrag, total_unpaid: -bedrag,\n      original_sales_invoice_id: f.mb_id, updated_at: nu };\n    mutatie = { soort: 'factuur_toevoegen', rij: credit };\n    push = { entity_type: 'SalesInvoice', entity_id: credit.mb_id, action: 'sales_invoice_state_changed_to_open', state: 'open', entity: toMb(credit, c) };\n    melding = 'Creditfactuur ' + credit.invoice_id + ' (' + (-bedrag) + ') aangemaakt op ' + f.invoice_id;\n  } else {\n    throw new Error('Onbekende gebeurtenis \"' + g + '\". Kies: vervalt, deelbetaling, betaling, creditfactuur, storno, oninbaar, opzegging');\n  }\n  if (!mutatie) {\n    nieuw.updated_at = nu;\n    mutatie = { soort: 'factuur_bijwerken', mb_id: f.mb_id, state: nieuw.state, total_unpaid: num(nieuw.total_unpaid), updated_at: nu };\n  }\n  push.entity_id = push.entity_id || (push.entity ? push.entity.id : f.mb_id);\n  push.entity = push.entity || toMb(nieuw, c);\n}\n\nconst payload = { administration_id: 'adm-demo', webhook_id: 'wh_demo_c4', webhook_token: TOKEN,\n  entity_type: push.entity_type, entity_id: push.entity_id, state: push.state, action: push.action, entity: push.entity };\nconst key = 'mb-push-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);\nreturn [{ json: { gebeurtenis: g, melding, mutatie, payload, idempotency_key: key,\n  zonder_webhook: body.zonder_webhook === true, dubbel: body.dubbel === true } }];"
+      },
+      "notes": "Bepaalt de mutatie op de mock-data én de webhook-payload die MoneyBird daarna zou sturen."
+    },
+    {
+      "id": "fde23058-b539-4fe3-aa9c-ee923fa6babf",
+      "name": "Soort mutatie",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mutatie.soort }}",
+                    "rightValue": "factuur_bijwerken",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "factuur bijwerken"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mutatie.soort }}",
+                    "rightValue": "factuur_toevoegen",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "creditfactuur toevoegen"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mutatie.soort }}",
+                    "rightValue": "contact",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "contact bijwerken"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "dba5541e-5acd-48ca-b908-9747965e0993",
+      "name": "Factuur bijwerken",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        -160
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_mb_invoices",
+          "mode": "name"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "mb_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.mutatie.mb_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "state": "={{ $json.mutatie.state }}",
+            "total_unpaid": "={{ $json.mutatie.total_unpaid }}",
+            "updated_at": "={{ $json.mutatie.updated_at }}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "1ce57f33-974a-4954-9271-150846a1e7ea",
+      "name": "Creditfactuur toevoegen",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        0
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_mb_invoices",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "mb_id": "={{ $json.mutatie.rij.mb_id }}",
+            "contact_id": "={{ $json.mutatie.rij.contact_id }}",
+            "invoice_id": "={{ $json.mutatie.rij.invoice_id }}",
+            "state": "={{ $json.mutatie.rij.state }}",
+            "invoice_date": "={{ $json.mutatie.rij.invoice_date }}",
+            "due_date": "={{ $json.mutatie.rij.due_date }}",
+            "total_price_incl_tax": "={{ $json.mutatie.rij.total_price_incl_tax }}",
+            "total_unpaid": "={{ $json.mutatie.rij.total_unpaid }}",
+            "original_sales_invoice_id": "={{ $json.mutatie.rij.original_sales_invoice_id }}",
+            "updated_at": "={{ $json.mutatie.rij.updated_at }}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a4e14de5-5931-47c4-aa43-2d943a9e50ca",
+      "name": "Contact bijwerken",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        160
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_mb_contacts",
+          "mode": "name"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "contact_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.mutatie.contact_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "cancelled_at": "={{ $json.mutatie.cancelled_at }}",
+            "abonnement_status": "={{ $json.mutatie.abonnement_status }}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ba6ae282-7b1f-4997-9b6c-9ada98b12ab3",
+      "name": "Webhook versturen?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1360,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ !$('Gebeurtenis uitvoeren').first().json.zonder_webhook }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": false,
+        "options": {}
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "3c5450d8-1735-48ee-bdf2-e5e6942bce88",
+      "name": "Pushes klaarzetten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1580,
+        -80
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const g = $('Gebeurtenis uitvoeren').first().json;\nconst n = g.dubbel ? 2 : 1;\nreturn Array.from({ length: n }, (_, i) => ({ json: { poging: i + 1, idempotency_key: g.idempotency_key, payload: g.payload } }));"
+      },
+      "executeOnce": true,
+      "notes": "Eén push, of twee met dezelfde Idempotency-Key (\"dubbel\": MoneyBird probeert opnieuw). Bij \"zonder_webhook\" geen push: zo simuleer je een gemiste webhook."
+    },
+    {
+      "id": "36e56419-8861-4401-adaa-66fce9ce7a86",
+      "name": "Webhook naar C4-10",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1800,
+        -80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5678/webhook/moneybird-events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $json.idempotency_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 30000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1500
+            }
+          }
+        }
+      },
+      "notes": "POST naar het webhook-adres zoals MoneyBird dat doet. Eén voor één (batch 1), zoals een retry van MoneyBird ook later komt."
+    },
+    {
+      "id": "48a07f7d-fbc7-4d56-bc32-8815caf14df3",
+      "name": "Samenvatting",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2020,
+        40
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const g = $('Gebeurtenis uitvoeren').first().json;\nconst antwoorden = $('Webhook naar C4-10').isExecuted ? $('Webhook naar C4-10').all().map(i => i.json) : [];\nreturn [{ json: {\n  gebeurtenis: g.gebeurtenis,\n  melding: g.melding,\n  webhook: g.zonder_webhook ? 'NIET verstuurd (gemiste webhook gesimuleerd)' : g.payload.action,\n  idempotency_key: g.idempotency_key,\n  antwoorden_c4_10: antwoorden\n}}];"
+      },
+      "executeOnce": true
+    }
+  ],
+  "connections": {
+    "Webhook c4-moneybird-sim": {
+      "main": [
+        [
+          {
+            "node": "Facturen lezen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Facturen lezen": {
+      "main": [
+        [
+          {
+            "node": "Contacten lezen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contacten lezen": {
+      "main": [
+        [
+          {
+            "node": "Gebeurtenis uitvoeren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gebeurtenis uitvoeren": {
+      "main": [
+        [
+          {
+            "node": "Soort mutatie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Soort mutatie": {
+      "main": [
+        [
+          {
+            "node": "Factuur bijwerken",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Creditfactuur toevoegen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Contact bijwerken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Factuur bijwerken": {
+      "main": [
+        [
+          {
+            "node": "Webhook versturen?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Creditfactuur toevoegen": {
+      "main": [
+        [
+          {
+            "node": "Webhook versturen?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contact bijwerken": {
+      "main": [
+        [
+          {
+            "node": "Webhook versturen?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook versturen?": {
+      "main": [
+        [
+          {
+            "node": "Pushes klaarzetten",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Samenvatting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pushes klaarzetten": {
+      "main": [
+        [
+          {
+            "node": "Webhook naar C4-10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook naar C4-10": {
+      "main": [
+        [
+          {
+            "node": "Samenvatting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "timezone": "Europe/Amsterdam",
+    "executionOrder": "v1"
+  },
+  "tags": [],
+  "isArchived": false
+}

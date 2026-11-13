@@ -1,0 +1,327 @@
+{
+  "id": "4t40daXVWLBtu4jQ",
+  "name": "C4-01 Mock – MoneyBird API",
+  "active": false,
+  "nodes": [
+    {
+      "id": "99f3cec4-ff02-488e-a856-15abfeef6ecc",
+      "name": "Uitleg mock",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -420
+      ],
+      "parameters": {
+        "content": "## C4-01 Mock – MoneyBird API\nDoet zich voor als de MoneyBird REST API (v2), met **dezelfde paden, filtersyntax en velden**. Productie = alleen base-URL + credential wisselen.\n- `GET …/sales_invoices?filter=contact_id:X,state:late|reminded`\n- `GET …/sales_invoices/{id}` (nodig bij een `payment_registered`-webhook: die bevat alleen het factuur-ID)\n- `GET …/subscriptions?filter=contact_id:X`\n\nData komt uit de Data Tables `c4_mb_invoices` en `c4_mb_contacts`; de simulator (C4-02) muteert die.\n**Storing testen = deze workflow uitzetten.**",
+        "height": 300,
+        "width": 760,
+        "color": 7
+      }
+    },
+    {
+      "id": "08ce19ee-5a64-4c13-baf6-da7144d10748",
+      "webhookId": "89672285-3504-4858-9d3f-b15f46d65df5",
+      "name": "GET sales_invoices",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        -100
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "c4-moneybird/api/v2/adm-demo/sales_invoices",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "b04b14ee-f6e8-4ba8-af88-09d2f30dd40d",
+      "webhookId": "c4-moneybird",
+      "name": "GET sales_invoices/{id}",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        60
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/v2/adm-demo/sales_invoices/:id",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "notes": "Dynamisch pad: n8n zet de webhookId ervoor. Door die op \"c4-moneybird\" te zetten is de URL gelijk aan die van het lijst-endpoint + /{id}."
+    },
+    {
+      "id": "e0d948da-def2-4666-947b-7a1433cb8927",
+      "webhookId": "c90e8e14-eb95-4fe5-976f-5d91cd3536c4",
+      "name": "GET subscriptions",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        220
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "c4-moneybird/api/v2/adm-demo/subscriptions",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "7d826449-e476-48b0-9889-2489151fa014",
+      "name": "Verzoek lezen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        60
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const req = $input.first().json;\nconst auth = String((req.headers || {}).authorization || '');\nconst url = String(req.webhookUrl || '');\nconst id = (req.params || {}).id || '';\nconst soort = id ? 'invoice' : (url.includes('/subscriptions') ? 'subscriptions' : 'invoices');\nconst filter = String((req.query || {}).filter || '');\nconst parts = {};\nfor (const p of filter.split(',')) {\n  const i = p.indexOf(':');\n  if (i > 0) parts[p.slice(0, i).trim()] = p.slice(i + 1).trim();\n}\nreturn [{ json: {\n  authorized: auth.startsWith('Bearer ') && auth.length > 7,\n  soort,\n  id: String(id).replace(/\\.json$/, ''),\n  contact_id: parts.contact_id || '',\n  states: parts.state ? parts.state.split('|') : [],\n  administration_id: 'adm-demo'\n}}];"
+      },
+      "notes": "Bepaalt welk endpoint is aangeroepen, controleert de Bearer-token en leest de MoneyBird-filter (\"contact_id:X,state:late|reminded\")."
+    },
+    {
+      "id": "5be09caa-2476-43e1-a4ab-8d4c0a9c1987",
+      "name": "Geautoriseerd?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        480,
+        60
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": false,
+        "options": {}
+      }
+    },
+    {
+      "id": "e2781b40-255d-4d6d-bb9a-4c4e68a0767e",
+      "name": "Facturen lezen",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        -40
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_mb_invoices",
+          "mode": "name"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "returnAll": true
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "94159222-ff17-46e1-a483-a6565092e7b2",
+      "name": "Contacten lezen",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        940,
+        -40
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_mb_contacts",
+          "mode": "name"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "returnAll": true
+      },
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "id": "fb0e6f7d-e5a5-4306-b914-a5c08f5af3a6",
+      "name": "Naar MoneyBird-formaat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        -40
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const req = $('Verzoek lezen').first().json;\nconst rows = n => $(n).all().map(i => i.json).filter(r => r && r.id !== undefined);\nconst contacts = {};\nfor (const c of rows('Contacten lezen')) contacts[c.contact_id] = c;\nconst contactObj = c => c ? {\n  id: c.contact_id, company_name: c.company_name, firstname: c.firstname, lastname: c.lastname,\n  email: c.email, send_invoices_to_email: c.email, customer_id: c.customer_id\n} : null;\n\nif (req.soort === 'subscriptions') {\n  const subs = Object.values(contacts)\n    .filter(c => !req.contact_id || c.contact_id === req.contact_id)\n    .map(c => ({\n      id: c.subscription_id, administration_id: req.administration_id, contact_id: c.contact_id,\n      contact: contactObj(c), reference: c.abonnement, frequency_type: 'month', frequency: 1,\n      start_date: '2025-01-01', end_date: c.cancelled_at ? c.cancelled_at.slice(0, 10) : null,\n      cancelled_at: c.cancelled_at || null\n    }));\n  return [{ json: { code: 200, body: subs } }];\n}\n\nconst toMb = r => ({\n  id: r.mb_id,\n  administration_id: req.administration_id,\n  contact_id: r.contact_id,\n  contact: contactObj(contacts[r.contact_id]),\n  invoice_id: r.invoice_id,\n  state: r.state,\n  invoice_date: r.invoice_date,\n  due_date: r.due_date,\n  currency: 'EUR',\n  total_price_incl_tax: Number(r.total_price_incl_tax).toFixed(2),\n  total_unpaid: Number(r.total_unpaid).toFixed(2),\n  original_sales_invoice_id: r.original_sales_invoice_id || null,\n  url: 'https://pay.example.com/moneybird/' + r.mb_id,\n  payment_url: 'https://pay.example.com/moneybird/' + r.mb_id + '/betalen',\n  updated_at: r.updated_at\n});\nconst invoices = rows('Facturen lezen').filter(r => r.mb_id);\n\nif (req.soort === 'invoice') {\n  const r = invoices.find(x => x.mb_id === req.id);\n  return [{ json: r ? { code: 200, body: toMb(r) } : { code: 404, body: { error: 'record not found', symbol: 'not_found' } } }];\n}\nconst lijst = invoices\n  .filter(r => !req.contact_id || r.contact_id === req.contact_id)\n  .filter(r => req.states.length === 0 || req.states.includes(r.state))\n  .map(toMb);\nreturn [{ json: { code: 200, body: lijst } }];"
+      },
+      "notes": "Zelfde veldnamen als de echte API: id, contact_id, contact{…}, invoice_id, state, due_date, total_unpaid (string), original_sales_invoice_id, url/payment_url."
+    },
+    {
+      "id": "2fac3a97-5e27-4661-800b-fbd694b3de8a",
+      "name": "Antwoord",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1380,
+        -40
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "responseCode": "={{ $json.code }}"
+        }
+      }
+    },
+    {
+      "id": "a2b0d254-4a88-4549-b9dc-e2a0d2ff4e7e",
+      "name": "Antwoord: 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        720,
+        180
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"error\": \"Unauthorized\", \"symbol\": \"unauthorized\" }",
+        "options": {
+          "responseCode": 401
+        }
+      }
+    }
+  ],
+  "connections": {
+    "GET sales_invoices": {
+      "main": [
+        [
+          {
+            "node": "Verzoek lezen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET sales_invoices/{id}": {
+      "main": [
+        [
+          {
+            "node": "Verzoek lezen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET subscriptions": {
+      "main": [
+        [
+          {
+            "node": "Verzoek lezen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verzoek lezen": {
+      "main": [
+        [
+          {
+            "node": "Geautoriseerd?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Geautoriseerd?": {
+      "main": [
+        [
+          {
+            "node": "Facturen lezen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Antwoord: 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Facturen lezen": {
+      "main": [
+        [
+          {
+            "node": "Contacten lezen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contacten lezen": {
+      "main": [
+        [
+          {
+            "node": "Naar MoneyBird-formaat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Naar MoneyBird-formaat": {
+      "main": [
+        [
+          {
+            "node": "Antwoord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "timezone": "Europe/Amsterdam",
+    "executionOrder": "v1"
+  },
+  "tags": [],
+  "isArchived": false
+}

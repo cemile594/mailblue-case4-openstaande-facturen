@@ -1,0 +1,7 @@
+[
+  {"contact_id": "mb_c_410001", "company_name": "Bakkerij De Korenaar", "firstname": "Fatima", "lastname": "de Wit", "email": "administratie@korenaar.example.com", "customer_id": "1041", "abonnement": "MailBlue Plus (maand)", "abonnement_status": "actief", "subscription_id": "mb_sub_610001"},
+  {"contact_id": "mb_c_420001", "company_name": "Studio Noordlicht", "firstname": "Jesse", "lastname": "Bakker", "email": "finance@noordlicht.example.com", "customer_id": "1042", "abonnement": "MailBlue Pro (maand)", "abonnement_status": "actief", "subscription_id": "mb_sub_620001"},
+  {"contact_id": "mb_c_430001", "company_name": "Fietsenmaker Spaak & Zn", "firstname": "Henk", "lastname": "Spaak", "email": "henk@spaak.example.com", "customer_id": "1043", "abonnement": "MailBlue Lite (maand)", "abonnement_status": "actief", "subscription_id": "mb_sub_630001"},
+  {"contact_id": "mb_c_440001", "company_name": "Kapsalon Knip", "firstname": "Noor", "lastname": "Yilmaz", "email": "", "customer_id": "1044", "abonnement": "MailBlue Lite (maand)", "abonnement_status": "actief", "subscription_id": "mb_sub_640001"},
+  {"contact_id": "mb_c_450001", "company_name": "Hoveniers Groenrijk", "firstname": "Sem", "lastname": "Jansen", "email": "info@groenrijk.example.com", "customer_id": "1045", "abonnement": "MailBlue Plus (maand)", "abonnement_status": "actief", "subscription_id": "mb_sub_650001"}
+]

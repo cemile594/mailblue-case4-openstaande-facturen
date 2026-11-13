@@ -1,0 +1,14 @@
+{
+  "tag_dunning": "3",
+  "fields": {
+    "status": "2",
+    "bedrag": "3",
+    "aantal": "4",
+    "facturen": "5",
+    "vervaldatum": "6",
+    "betaallink": "7",
+    "opgezegd": "8",
+    "mb_contact": "9"
+  },
+  "tag_naam": "billing-dunning-actief"
+}

@@ -1,0 +1,12 @@
+{
+  "workspace_gid": "1220530892739267",
+  "workspace_naam": "My workspace",
+  "project_gid": "1220516739774524",
+  "sections": {
+    "Nieuw": "1220516593951920",
+    "In behandeling": "1220516539001069",
+    "Betalingsafspraak": "1220516921250517",
+    "Afgerond": "1220516827263416"
+  },
+  "assignee_gid": "1220530892739247"
+}

@@ -1,0 +1,1 @@
+{"_endpoint":"webhook","_verwacht":"401: onbekende afzender, niets gelogd of gedaan","_headers":{"Idempotency-Key":"mb-push-nep"},"webhook_token":"fout-token","entity_type":"SalesInvoice","entity_id":"mb_inv_520001","action":"sales_invoice_state_changed_to_paid","entity":{"id":"mb_inv_520001","contact_id":"mb_c_420001"}}

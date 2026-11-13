@@ -1,0 +1,922 @@
+{
+  "id": "rLw2pvlv3jgWlvq8",
+  "name": "C4-00 Setup – Demo-data",
+  "active": false,
+  "nodes": [
+    {
+      "id": "7adb92c5-3b28-4e1d-9698-cbe0ebc6169f",
+      "name": "Uitleg setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -340
+      ],
+      "parameters": {
+        "content": "## C4-00 Setup – Demo-data\nMaakt de Data Tables voor case 4 aan (als ze nog niet bestaan), leegt ze en vult de fictieve MoneyBird-data.\n- `c4_mb_contacts` / `c4_mb_invoices`: de mock van MoneyBird (bron van waarheid voor factuurstatus)\n- `c4_dunning_cases`: één rij per klant — staat die klant in dunning, welke Asana-taak, welk AC-contact\n- `c4_event_log`: elke binnengekomen webhook (idempotentie + audit trail)\n- `c4_slack_messages`: mock van Slack (#billing, #billing-alerts)\n\nDemo-reset: `curl -X POST <n8n>/webhook/c4-setup` (of scripts/run_demo.sh --reset).",
+        "height": 280,
+        "width": 720,
+        "color": 7
+      }
+    },
+    {
+      "id": "14adfb9a-ab9c-4aa7-a8d7-7e79cc429585",
+      "name": "Handmatig starten",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -100
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "dbaca78b-f01e-423f-82c2-e9c11f96c89f",
+      "webhookId": "8d8c9aa7-f0fc-4fd1-a84d-149557b17d79",
+      "name": "Webhook c4-setup",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        100
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "c4-setup",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {}
+      }
+    },
+    {
+      "id": "34a2e3bd-3ebf-4cc4-8491-41dad03cf102",
+      "name": "Maak tabel c4_mb_contacts",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "c4_mb_contacts",
+        "columns": {
+          "column": [
+            {
+              "name": "contact_id",
+              "type": "string"
+            },
+            {
+              "name": "company_name",
+              "type": "string"
+            },
+            {
+              "name": "firstname",
+              "type": "string"
+            },
+            {
+              "name": "lastname",
+              "type": "string"
+            },
+            {
+              "name": "email",
+              "type": "string"
+            },
+            {
+              "name": "customer_id",
+              "type": "string"
+            },
+            {
+              "name": "abonnement",
+              "type": "string"
+            },
+            {
+              "name": "abonnement_status",
+              "type": "string"
+            },
+            {
+              "name": "subscription_id",
+              "type": "string"
+            },
+            {
+              "name": "cancelled_at",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "923d5309-ee3f-4b40-88c0-85a1bf465a4d",
+      "name": "Maak tabel c4_mb_invoices",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "c4_mb_invoices",
+        "columns": {
+          "column": [
+            {
+              "name": "mb_id",
+              "type": "string"
+            },
+            {
+              "name": "contact_id",
+              "type": "string"
+            },
+            {
+              "name": "invoice_id",
+              "type": "string"
+            },
+            {
+              "name": "state",
+              "type": "string"
+            },
+            {
+              "name": "invoice_date",
+              "type": "string"
+            },
+            {
+              "name": "due_date",
+              "type": "string"
+            },
+            {
+              "name": "total_price_incl_tax",
+              "type": "number"
+            },
+            {
+              "name": "total_unpaid",
+              "type": "number"
+            },
+            {
+              "name": "original_sales_invoice_id",
+              "type": "string"
+            },
+            {
+              "name": "updated_at",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "b9b8a13c-7be1-4151-9adb-d0d26be3f5e7",
+      "name": "Maak tabel c4_dunning_cases",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        700,
+        0
+      ],
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "c4_dunning_cases",
+        "columns": {
+          "column": [
+            {
+              "name": "mb_contact_id",
+              "type": "string"
+            },
+            {
+              "name": "klant",
+              "type": "string"
+            },
+            {
+              "name": "email",
+              "type": "string"
+            },
+            {
+              "name": "status",
+              "type": "string"
+            },
+            {
+              "name": "reden",
+              "type": "string"
+            },
+            {
+              "name": "ac_contact_id",
+              "type": "string"
+            },
+            {
+              "name": "asana_task_gid",
+              "type": "string"
+            },
+            {
+              "name": "gestart_op",
+              "type": "string"
+            },
+            {
+              "name": "gestopt_op",
+              "type": "string"
+            },
+            {
+              "name": "openstaand_bedrag",
+              "type": "number"
+            },
+            {
+              "name": "facturen",
+              "type": "string"
+            },
+            {
+              "name": "abonnement_opgezegd",
+              "type": "string"
+            },
+            {
+              "name": "rondes",
+              "type": "number"
+            },
+            {
+              "name": "laatste_aanleiding",
+              "type": "string"
+            },
+            {
+              "name": "bijgewerkt_op",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "ba9407ef-ad63-4e9c-ac40-2cdb742fd4b0",
+      "name": "Maak tabel c4_event_log",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        920,
+        0
+      ],
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "c4_event_log",
+        "columns": {
+          "column": [
+            {
+              "name": "idempotency_key",
+              "type": "string"
+            },
+            {
+              "name": "action",
+              "type": "string"
+            },
+            {
+              "name": "entity_type",
+              "type": "string"
+            },
+            {
+              "name": "entity_id",
+              "type": "string"
+            },
+            {
+              "name": "mb_contact_id",
+              "type": "string"
+            },
+            {
+              "name": "status",
+              "type": "string"
+            },
+            {
+              "name": "actie",
+              "type": "string"
+            },
+            {
+              "name": "reden",
+              "type": "string"
+            },
+            {
+              "name": "received_at",
+              "type": "string"
+            },
+            {
+              "name": "processed_at",
+              "type": "string"
+            },
+            {
+              "name": "raw",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "32c76a6d-2f05-4971-9db8-77eb35518177",
+      "name": "Maak tabel c4_slack_messages",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1140,
+        0
+      ],
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "c4_slack_messages",
+        "columns": {
+          "column": [
+            {
+              "name": "channel",
+              "type": "string"
+            },
+            {
+              "name": "severity",
+              "type": "string"
+            },
+            {
+              "name": "text",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "created_at",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "5bbdd73a-6e69-404f-bff9-0e48eb1200e2",
+      "name": "Leeg c4_mb_contacts",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1360,
+        0
+      ],
+      "parameters": {
+        "resource": "table",
+        "operation": "clear",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_mb_contacts",
+          "mode": "name"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "76c340d9-278b-4650-8e67-d70b69b187d3",
+      "name": "Leeg c4_mb_invoices",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1580,
+        0
+      ],
+      "parameters": {
+        "resource": "table",
+        "operation": "clear",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_mb_invoices",
+          "mode": "name"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "27a1a14c-de70-44c3-aa59-ad9fd831f4d1",
+      "name": "Leeg c4_dunning_cases",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1800,
+        0
+      ],
+      "parameters": {
+        "resource": "table",
+        "operation": "clear",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_dunning_cases",
+          "mode": "name"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "ea5cbeb9-2dff-4f32-b054-165dac6e0050",
+      "name": "Leeg c4_event_log",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2020,
+        0
+      ],
+      "parameters": {
+        "resource": "table",
+        "operation": "clear",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_event_log",
+          "mode": "name"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "f20cfae2-bd00-4e11-9ce0-4bc6abe2483b",
+      "name": "Leeg c4_slack_messages",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2240,
+        0
+      ],
+      "parameters": {
+        "resource": "table",
+        "operation": "clear",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_slack_messages",
+          "mode": "name"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "af133f02-77a4-4b27-b42e-d94fa0f30eb9",
+      "name": "MoneyBird-contacten (demo)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2460,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Fictieve MoneyBird-contacten (= mock-data/moneybird_contacts.json)\nconst rows = [\n  {\n    \"contact_id\": \"mb_c_410001\",\n    \"company_name\": \"Bakkerij De Korenaar\",\n    \"firstname\": \"Fatima\",\n    \"lastname\": \"de Wit\",\n    \"email\": \"administratie@korenaar.example.com\",\n    \"customer_id\": \"1041\",\n    \"abonnement\": \"MailBlue Plus (maand)\",\n    \"abonnement_status\": \"actief\",\n    \"subscription_id\": \"mb_sub_610001\"\n  },\n  {\n    \"contact_id\": \"mb_c_420001\",\n    \"company_name\": \"Studio Noordlicht\",\n    \"firstname\": \"Jesse\",\n    \"lastname\": \"Bakker\",\n    \"email\": \"finance@noordlicht.example.com\",\n    \"customer_id\": \"1042\",\n    \"abonnement\": \"MailBlue Pro (maand)\",\n    \"abonnement_status\": \"actief\",\n    \"subscription_id\": \"mb_sub_620001\"\n  },\n  {\n    \"contact_id\": \"mb_c_430001\",\n    \"company_name\": \"Fietsenmaker Spaak & Zn\",\n    \"firstname\": \"Henk\",\n    \"lastname\": \"Spaak\",\n    \"email\": \"henk@spaak.example.com\",\n    \"customer_id\": \"1043\",\n    \"abonnement\": \"MailBlue Lite (maand)\",\n    \"abonnement_status\": \"actief\",\n    \"subscription_id\": \"mb_sub_630001\"\n  },\n  {\n    \"contact_id\": \"mb_c_440001\",\n    \"company_name\": \"Kapsalon Knip\",\n    \"firstname\": \"Noor\",\n    \"lastname\": \"Yilmaz\",\n    \"email\": \"\",\n    \"customer_id\": \"1044\",\n    \"abonnement\": \"MailBlue Lite (maand)\",\n    \"abonnement_status\": \"actief\",\n    \"subscription_id\": \"mb_sub_640001\"\n  },\n  {\n    \"contact_id\": \"mb_c_450001\",\n    \"company_name\": \"Hoveniers Groenrijk\",\n    \"firstname\": \"Sem\",\n    \"lastname\": \"Jansen\",\n    \"email\": \"info@groenrijk.example.com\",\n    \"customer_id\": \"1045\",\n    \"abonnement\": \"MailBlue Plus (maand)\",\n    \"abonnement_status\": \"actief\",\n    \"subscription_id\": \"mb_sub_650001\"\n  }\n];\nreturn rows.map(r => ({ json: { ...r, cancelled_at: '' } }));"
+      },
+      "executeOnce": true,
+      "notes": "Fictieve klanten (zelfde data als mock-data/moneybird_contacts.json). Kapsalon Knip heeft bewust geen e-mailadres."
+    },
+    {
+      "id": "6cd1e274-9c80-4b10-904f-62d2f84cf692",
+      "name": "Contacten invoegen",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2680,
+        0
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_mb_contacts",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "213e1202-1886-4074-bfa8-d1a32f121a6d",
+      "name": "MoneyBird-facturen (demo)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2900,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Fictieve MoneyBird sales invoices (= mock-data/moneybird_invoices.json). 'id' heet hier mb_id: data tables hebben zelf een id-kolom.\nconst rows = [\n  {\n    \"mb_id\": \"mb_inv_510000\",\n    \"contact_id\": \"mb_c_410001\",\n    \"invoice_id\": \"2026-0433\",\n    \"state\": \"paid\",\n    \"invoice_date\": \"2026-09-01\",\n    \"due_date\": \"2026-09-15\",\n    \"total_price_incl_tax\": 59.0,\n    \"total_unpaid\": 0.0,\n    \"original_sales_invoice_id\": \"\"\n  },\n  {\n    \"mb_id\": \"mb_inv_510001\",\n    \"contact_id\": \"mb_c_410001\",\n    \"invoice_id\": \"2026-0501\",\n    \"state\": \"open\",\n    \"invoice_date\": \"2026-10-01\",\n    \"due_date\": \"2026-10-15\",\n    \"total_price_incl_tax\": 59.0,\n    \"total_unpaid\": 59.0,\n    \"original_sales_invoice_id\": \"\"\n  },\n  {\n    \"mb_id\": \"mb_inv_510002\",\n    \"contact_id\": \"mb_c_410001\",\n    \"invoice_id\": \"2026-0567\",\n    \"state\": \"open\",\n    \"invoice_date\": \"2026-10-29\",\n    \"due_date\": \"2026-11-12\",\n    \"total_price_incl_tax\": 59.0,\n    \"total_unpaid\": 59.0,\n    \"original_sales_invoice_id\": \"\"\n  },\n  {\n    \"mb_id\": \"mb_inv_520001\",\n    \"contact_id\": \"mb_c_420001\",\n    \"invoice_id\": \"2026-0512\",\n    \"state\": \"open\",\n    \"invoice_date\": \"2026-10-06\",\n    \"due_date\": \"2026-10-20\",\n    \"total_price_incl_tax\": 179.0,\n    \"total_unpaid\": 179.0,\n    \"original_sales_invoice_id\": \"\"\n  },\n  {\n    \"mb_id\": \"mb_inv_530001\",\n    \"contact_id\": \"mb_c_430001\",\n    \"invoice_id\": \"2026-0520\",\n    \"state\": \"open\",\n    \"invoice_date\": \"2026-10-10\",\n    \"due_date\": \"2026-10-24\",\n    \"total_price_incl_tax\": 89.0,\n    \"total_unpaid\": 89.0,\n    \"original_sales_invoice_id\": \"\"\n  },\n  {\n    \"mb_id\": \"mb_inv_540001\",\n    \"contact_id\": \"mb_c_440001\",\n    \"invoice_id\": \"2026-0525\",\n    \"state\": \"open\",\n    \"invoice_date\": \"2026-10-13\",\n    \"due_date\": \"2026-10-27\",\n    \"total_price_incl_tax\": 29.0,\n    \"total_unpaid\": 29.0,\n    \"original_sales_invoice_id\": \"\"\n  },\n  {\n    \"mb_id\": \"mb_inv_550001\",\n    \"contact_id\": \"mb_c_450001\",\n    \"invoice_id\": \"2026-0530\",\n    \"state\": \"open\",\n    \"invoice_date\": \"2026-10-15\",\n    \"due_date\": \"2026-10-29\",\n    \"total_price_incl_tax\": 119.0,\n    \"total_unpaid\": 119.0,\n    \"original_sales_invoice_id\": \"\"\n  }\n];\nconst nu = new Date().toISOString();\nreturn rows.map(r => ({ json: { ...r, updated_at: nu } }));"
+      },
+      "executeOnce": true,
+      "notes": "Fictieve sales invoices (= mock-data/moneybird_invoices.json). Alles staat nog op open: de simulator (C4-02) laat ze vervallen."
+    },
+    {
+      "id": "3ecd3c81-98bc-4e48-92e2-3eed4831504d",
+      "name": "Facturen invoegen",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3120,
+        0
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_mb_invoices",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "5790bdff-afd1-4d5d-a7ad-f3bc3906c5a1",
+      "name": "Samenvatting",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3340,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{ json: {\n  status: 'ok',\n  tabellen: [\"c4_mb_contacts\", \"c4_mb_invoices\", \"c4_dunning_cases\", \"c4_event_log\", \"c4_slack_messages\"],\n  contacten: $('MoneyBird-contacten (demo)').all().length,\n  facturen: $input.all().length,\n  opmerking: 'Dossiers, event-log en Slack-mock zijn geleegd (demo-reset). Reset ActiveCampaign en Asana met scripts/run_demo.sh --reset.'\n}}];"
+      }
+    },
+    {
+      "id": "cc31205e-8e17-47ef-9595-c5ba02eda6ba",
+      "name": "Uitleg status",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        300
+      ],
+      "parameters": {
+        "content": "### Status opvragen (voor checkscript en demo)\n`GET <n8n>/webhook/c4-status` geeft alle dossiers, het event-log en de Slack-mock als JSON. Nodig omdat de Data Tables-API niet bereikbaar is met de API-key van deze lokale instance.",
+        "height": 300,
+        "width": 1180,
+        "color": 4
+      }
+    },
+    {
+      "id": "3fb88a41-2550-41c6-bdf0-2d2b699ddc3c",
+      "webhookId": "9683298f-ff78-4e3e-b44d-5837e6f011c4",
+      "name": "Webhook c4-status",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        440
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "c4-status",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {}
+      }
+    },
+    {
+      "id": "709eefe2-9888-4800-8245-9ffc1cb65230",
+      "name": "Dossiers ophalen",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        440
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_dunning_cases",
+          "mode": "name"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "returnAll": true
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "20c2d4e8-d485-45fe-9f9d-70be15cd4152",
+      "name": "Event-log ophalen",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        440
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_event_log",
+          "mode": "name"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "returnAll": true
+      },
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "id": "098f0455-3e14-4c0b-80ab-ffdbd196d10b",
+      "name": "Slack-mock ophalen",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        440
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "c4_slack_messages",
+          "mode": "name"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "returnAll": true
+      },
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "id": "97a01fc5-68d1-485f-a413-847b14e31706",
+      "name": "Status samenstellen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        440
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const rows = n => $(n).all().map(i => i.json).filter(r => r && Object.keys(r).length > 0 && r.id !== undefined);\nconst strip = r => { const o = { ...r }; delete o.createdAt; delete o.updatedAt; return o; };\nconst log = rows('Event-log ophalen').map(strip).map(r => ({ ...r, raw: undefined }));\nreturn [{ json: {\n  dossiers: rows('Dossiers ophalen').map(strip),\n  event_log: log,\n  slack: rows('Slack-mock ophalen').map(strip)\n} }];"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook c4-status": {
+      "main": [
+        [
+          {
+            "node": "Dossiers ophalen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dossiers ophalen": {
+      "main": [
+        [
+          {
+            "node": "Event-log ophalen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Event-log ophalen": {
+      "main": [
+        [
+          {
+            "node": "Slack-mock ophalen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack-mock ophalen": {
+      "main": [
+        [
+          {
+            "node": "Status samenstellen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handmatig starten": {
+      "main": [
+        [
+          {
+            "node": "Maak tabel c4_mb_contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook c4-setup": {
+      "main": [
+        [
+          {
+            "node": "Maak tabel c4_mb_contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Maak tabel c4_mb_contacts": {
+      "main": [
+        [
+          {
+            "node": "Maak tabel c4_mb_invoices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Maak tabel c4_mb_invoices": {
+      "main": [
+        [
+          {
+            "node": "Maak tabel c4_dunning_cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Maak tabel c4_dunning_cases": {
+      "main": [
+        [
+          {
+            "node": "Maak tabel c4_event_log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Maak tabel c4_event_log": {
+      "main": [
+        [
+          {
+            "node": "Maak tabel c4_slack_messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Maak tabel c4_slack_messages": {
+      "main": [
+        [
+          {
+            "node": "Leeg c4_mb_contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leeg c4_mb_contacts": {
+      "main": [
+        [
+          {
+            "node": "Leeg c4_mb_invoices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leeg c4_mb_invoices": {
+      "main": [
+        [
+          {
+            "node": "Leeg c4_dunning_cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leeg c4_dunning_cases": {
+      "main": [
+        [
+          {
+            "node": "Leeg c4_event_log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leeg c4_event_log": {
+      "main": [
+        [
+          {
+            "node": "Leeg c4_slack_messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leeg c4_slack_messages": {
+      "main": [
+        [
+          {
+            "node": "MoneyBird-contacten (demo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MoneyBird-contacten (demo)": {
+      "main": [
+        [
+          {
+            "node": "Contacten invoegen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contacten invoegen": {
+      "main": [
+        [
+          {
+            "node": "MoneyBird-facturen (demo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MoneyBird-facturen (demo)": {
+      "main": [
+        [
+          {
+            "node": "Facturen invoegen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Facturen invoegen": {
+      "main": [
+        [
+          {
+            "node": "Samenvatting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "timezone": "Europe/Amsterdam",
+    "executionOrder": "v1"
+  },
+  "tags": [],
+  "isArchived": false
+}
